@@ -1,0 +1,66 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+
+PIDFILE=/var/run/mqtt_sub.pid
+
+start_service(){
+    local enable
+    local daemon
+    local host
+    local port
+    local username
+    local password
+    local cafile
+    local certfile
+    local keyfile
+
+    config_load 'mqtt_sub'
+
+    config_get enable main enable '0'
+    config_get daemon main daemon '0'
+    config_get host main host '192.168.1.1'
+    config_get port main port '1883'
+    config_get username main username ''
+    config_get password main password ''
+    config_get cafile main cafile ''
+    config_get certfile main certfile ''
+    config_get keyfile main keyfile ''
+
+    if [ "$enable" -eq 1 ]; then
+        procd_open_instance
+
+        procd_set_param stdout 1
+        procd_set_param stderr 1
+        procd_set_param command /usr/bin/mqtt_sub  
+        
+        procd_append_param command -h "$host"
+        procd_append_param command -p "$port"
+
+        [[ -n "$username" ]] && procd_append_param command -u "$username"
+        [[ -n "$password" ]] && procd_append_param command -P "$password"
+        [[ -n "$cafile" ]] && procd_append_param command -c "$cafile"
+        [[ -n "$certfile" ]] && procd_append_param command -e "$certfile"
+        [[ -n "$keyfile" ]] && procd_append_param command -k "$keyfile"
+        [[ "$daemon" -eq 1 ]] && procd_append_param command -D
+        
+        procd_set_param pidfile "$PIDFILE"
+
+        procd_set_param file /etc/config/mqtt_sub
+
+        procd_close_instance
+    fi
+}
+
+stop_service(){
+    kill $(cat "$PIDFILE")
+}
+
+service_triggers(){
+	procd_add_reload_trigger "mqtt_sub"
+}
+
+reload_service(){
+	stop
+	start
+}
